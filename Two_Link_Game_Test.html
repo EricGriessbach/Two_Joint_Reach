@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Linked Arm Game with Gravity and Coupled Forces</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const armLength = 150;
+        let arm1 = { length: armLength, angle: -Math.PI / 2, angularVelocity: 0 };
+        let arm2 = { length: armLength, angle: 0, angularVelocity: 0 };
+        let target = { x: 0, y: 0 };
+        let score = 0;
+
+        const centerX = 400;
+        const centerY = 300;
+        const maxReach = arm1.length + arm2.length;
+
+        const gravity = 0.0001;
+        const couplingFactor = 0.5; // Strength of the coupling between joints
+
+        const keyState = {
+            'a': false,
+            'd': false,
+            'j': false,
+            'l': false
+        };
+
+        function drawArm() {
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            let x1 = centerX + Math.cos(arm1.angle) * arm1.length;
+            let y1 = centerY + Math.sin(arm1.angle) * arm1.length;
+            ctx.lineTo(x1, y1);
+            let x2 = x1 + Math.cos(arm1.angle + arm2.angle) * arm2.length;
+            let y2 = y1 + Math.sin(arm1.angle + arm2.angle) * arm2.length;
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+
+        function drawTarget() {
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, 10, 0, Math.PI * 2);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+        }
+
+        function generateTarget() {
+            let angle = Math.random() * Math.PI * 2;
+            let distance = Math.random() * maxReach;
+            target.x = centerX + Math.cos(angle) * distance;
+            target.y = centerY + Math.sin(angle) * distance;
+        }
+
+        function checkCollision() {
+            let x = centerX + Math.cos(arm1.angle) * arm1.length + Math.cos(arm1.angle + arm2.angle) * arm2.length;
+            let y = centerY + Math.sin(arm1.angle) * arm1.length + Math.sin(arm1.angle + arm2.angle) * arm2.length;
+            let dx = x - target.x;
+            let dy = y - target.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < 15) {
+                score++;
+                generateTarget();
+            }
+        }
+
+        function updateArmAngles() {
+            const speed = 0.001;
+            let arm1Acceleration = 0;
+            let arm2Acceleration = 0;
+
+            if (keyState['a']) arm1Acceleration -= speed;
+            if (keyState['d']) arm1Acceleration += speed;
+            if (keyState['j']) arm2Acceleration -= speed;
+            if (keyState['l']) arm2Acceleration += speed;
+
+            // Apply gravity
+            arm1Acceleration += Math.cos(arm1.angle) * gravity;
+            arm2Acceleration += Math.cos(arm1.angle + arm2.angle) * gravity;
+
+            // Apply coupled forces
+            arm2.angularVelocity += arm1Acceleration * couplingFactor;
+            arm1.angularVelocity -= arm2Acceleration * couplingFactor;
+
+            // Update velocities
+            arm1.angularVelocity += arm1Acceleration;
+            arm2.angularVelocity += arm2Acceleration;
+
+            // Apply friction
+            arm1.angularVelocity *= 0.98;
+            arm2.angularVelocity *= 0.98;
+
+            // Update angles
+            arm1.angle += arm1.angularVelocity;
+            arm2.angle += arm2.angularVelocity;
+        }
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            updateArmAngles();
+            drawArm();
+            drawTarget();
+            checkCollision();
+            ctx.fillText(`Score: ${score}`, 10, 20);
+            requestAnimationFrame(update);
+        }
+
+        generateTarget();
+        update();
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key in keyState) {
+                keyState[e.key] = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key in keyState) {
+                keyState[e.key] = false;
+            }
+        });
+    </script>
+</body>
+</html>
