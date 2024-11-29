@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Two-Linked Arm Game with Gravity and Coupled Forces</title>
     <style>
         canvas {
@@ -16,24 +15,32 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        const armLength = 150;
+        const armLength = 90; // Reduced length
         let arm1 = { length: armLength, angle: -Math.PI / 2, angularVelocity: 0 };
         let arm2 = { length: armLength, angle: 0, angularVelocity: 0 };
         let target = { x: 0, y: 0 };
         let score = 0;
 
-        const centerX = 400;
-        const centerY = 300;
+        let centerX = 400;
+        let centerY = 300;
         const maxReach = arm1.length + arm2.length;
 
+        let startTime = Date.now();
+        let gameTime = 0;
+        const TARGET_GOAL = 20;
+        let isGameWon = false;
+        let winDisplayTime = 0;
+        const WIN_DISPLAY_DURATION = 3000; // 3 seconds to show final time
+
+
         const gravity = 0.0001;
-        const couplingFactor = 0.5; // Strength of the coupling between joints
+        const couplingFactor = 0.5;
 
         const keyState = {
             'a': false,
             'd': false,
-            'j': false,
-            'l': false
+            'w': false,
+            's': false
         };
 
         function drawArm() {
@@ -46,6 +53,18 @@
             let y2 = y1 + Math.sin(arm1.angle + arm2.angle) * arm2.length;
             ctx.lineTo(x2, y2);
             ctx.stroke();
+
+            // Draw starting point
+            ctx.beginPath();
+            ctx.fillRect(centerX - 5, centerY - 5, 10, 10); // x, y, width, height
+            ctx.fillStyle = 'black';
+            ctx.fill();
+
+            // Draw end point
+            ctx.beginPath();
+            ctx.arc(x2, y2, 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'red';
+            ctx.fill();
         }
 
         function drawTarget() {
@@ -68,7 +87,7 @@
             let dx = x - target.x;
             let dy = y - target.y;
             let distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance < 15) {
+            if (distance < 15 && !isGameWon) {
                 score++;
                 generateTarget();
             }
@@ -81,37 +100,106 @@
 
             if (keyState['a']) arm1Acceleration -= speed;
             if (keyState['d']) arm1Acceleration += speed;
-            if (keyState['j']) arm2Acceleration -= speed;
-            if (keyState['l']) arm2Acceleration += speed;
+            if (keyState['w']) arm2Acceleration -= speed;
+            if (keyState['s']) arm2Acceleration += speed;
 
-            // Apply gravity
             arm1Acceleration += Math.cos(arm1.angle) * gravity;
             arm2Acceleration += Math.cos(arm1.angle + arm2.angle) * gravity;
 
-            // Apply coupled forces
             arm2.angularVelocity += arm1Acceleration * couplingFactor;
             arm1.angularVelocity -= arm2Acceleration * couplingFactor;
 
-            // Update velocities
             arm1.angularVelocity += arm1Acceleration;
             arm2.angularVelocity += arm2Acceleration;
 
-            // Apply friction
             arm1.angularVelocity *= 0.98;
             arm2.angularVelocity *= 0.98;
 
-            // Update angles
             arm1.angle += arm1.angularVelocity;
             arm2.angle += arm2.angularVelocity;
         }
 
+        // Store previous center positions
+        let prevCenterX = centerX;
+        let prevCenterY = centerY;
+
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update game time if game is not won
+            if (!isGameWon) {
+                gameTime = (Date.now() - startTime) / 1000;
+            }
+
+            // Display timer on right side
+            ctx.fillStyle = 'black';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(`Time: ${gameTime.toFixed(1)}s`, canvas.width - 20, 30);
+            ctx.fillText(`Targets: ${score}/${TARGET_GOAL}`, canvas.width - 20, 60);
+            ctx.textAlign = 'left';
+
+            // Check win condition
+            if (score >= TARGET_GOAL && !isGameWon) {
+                isGameWon = true;
+                winDisplayTime = Date.now();
+            }
+
+            // Display win message
+            if (isGameWon) {
+                const timeSinceWin = Date.now() - winDisplayTime;
+                if (timeSinceWin < WIN_DISPLAY_DURATION) {
+                    ctx.fillStyle = 'black';
+                    ctx.font = '30px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`Final Time: ${gameTime.toFixed(1)} seconds!`, canvas.width/2, canvas.height/2);
+                    ctx.textAlign = 'left';
+                } else {
+                    // Reset game
+                    score = 0;
+                    startTime = Date.now();
+                    isGameWon = false;
+                    generateTarget();
+                }
+            }
+
+            // Calculate base movement
+            let baseVelocityX = centerX - prevCenterX;
+            let baseVelocityY = centerY - prevCenterY;
+            let baseSpeed = Math.sqrt(baseVelocityX ** 2 + baseVelocityY ** 2);
+
+            // Calculate base movement angle
+            let baseMovementAngle = Math.atan2(baseVelocityY, baseVelocityX);
+
+            // Calculate arm segment angles
+            let arm1Angle = arm1.angle;
+            let arm2Angle = arm1.angle + arm2.angle;
+
+            // Calculate angle differences
+            let angleDiff1 = baseMovementAngle - arm1Angle;
+            let angleDiff2 = baseMovementAngle - arm2Angle;
+
+            // Adjust arm angular velocities based on angle differences
+            let movementInfluence = 0.001; // Adjust this value as needed
+            arm1.angularVelocity += baseSpeed * Math.cos(angleDiff1) * movementInfluence;
+            arm2.angularVelocity += baseSpeed * Math.cos(angleDiff2) * movementInfluence;
+
             updateArmAngles();
             drawArm();
             drawTarget();
             checkCollision();
-            ctx.fillText(`Score: ${score}`, 10, 20);
+            // Add this to the update() function, right after drawing the score:
+            ctx.fillStyle = 'black';
+            ctx.font = '14px Arial';
+            ctx.fillText('Controls:', 10, 20);
+            ctx.fillText('A/D - Rotate first arm', 10, 40);
+            ctx.fillText('W/S - Rotate second arm', 10, 60);
+            ctx.fillText('Mouse - Move base point', 10, 80);
+            ctx.fillText('Goal: Move red endpoint to hit red target', 10, 100);
+            // Update previous center positions
+            prevCenterX = centerX;
+            prevCenterY = centerY;
+
             requestAnimationFrame(update);
         }
 
@@ -128,6 +216,13 @@
             if (e.key in keyState) {
                 keyState[e.key] = false;
             }
+        });
+
+        // Move joint origin with mouse, scaled for low movement
+        document.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            centerX = 400 + (e.clientX - rect.left - 400) * 0.05;
+            centerY = 300 + (e.clientY - rect.top - 300) * 0.05;
         });
     </script>
 </body>
