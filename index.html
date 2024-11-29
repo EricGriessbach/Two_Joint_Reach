@@ -32,7 +32,6 @@
         let winDisplayTime = 0;
         const WIN_DISPLAY_DURATION = 3000; // 3 seconds to show final time
 
-
         const gravity = 0.0001;
         const couplingFactor = 0.5;
 
@@ -42,6 +41,8 @@
             'w': false,
             's': false
         };
+
+        const popSound = new Audio('assets/pop_sound.wav');
 
         function drawArm() {
             ctx.beginPath();
@@ -89,6 +90,8 @@
             let distance = Math.sqrt(dx * dx + dy * dy);
             if (distance < 15 && !isGameWon) {
                 score++;
+                popSound.currentTime = 0; // Reset sound to start
+                popSound.play();
                 generateTarget();
             }
         }
@@ -152,7 +155,7 @@
                     ctx.fillStyle = 'black';
                     ctx.font = '30px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText(`Final Time: ${gameTime.toFixed(1)} seconds!`, canvas.width/2, canvas.height/2);
+                    ctx.fillText(`Final Time: ${gameTime.toFixed(1)} seconds!`, canvas.width/2, canvas.height/4);
                     ctx.textAlign = 'left';
                 } else {
                     // Reset game
